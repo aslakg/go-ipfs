@@ -12,8 +12,10 @@ import (
 	ds "gx/ipfs/QmRWDav6mzWseLWeYfVd5fvUKiVe9xNH29YfMF438fG364/go-datastore"
 	mount "gx/ipfs/QmRWDav6mzWseLWeYfVd5fvUKiVe9xNH29YfMF438fG364/go-datastore/syncmount"
 
+	badgerds "github.com/ipfs/go-ds-badger"
 	levelds "gx/ipfs/QmaHHmfEozrrotyhyN44omJouyuEtx6ahddqV6W5yRaUSQ/go-ds-leveldb"
 	ldbopts "gx/ipfs/QmbBhyDKsY4mbY6xsKt3qu9Y7FPvMJ6qbD8AMjYYvPRw1g/goleveldb/leveldb/opt"
+	"os"
 )
 
 func (r *FSRepo) constructDatastore(params map[string]interface{}) (repo.Datastore, error) {
@@ -62,6 +64,8 @@ func (r *FSRepo) constructDatastore(params map[string]interface{}) (repo.Datasto
 
 	case "levelds":
 		return r.openLeveldbDatastore(params)
+	case "badgerds":
+		return r.openBadgerDatastore(params)
 	default:
 		return nil, fmt.Errorf("unknown datastore type: %s", params["type"])
 	}
@@ -139,6 +143,20 @@ func (r *FSRepo) openLeveldbDatastore(params map[string]interface{}) (repo.Datas
 	return levelds.NewDatastore(p, &levelds.Options{
 		Compression: c,
 	})
+}
+
+func (r *FSRepo) openBadgerDatastore(params map[string]interface{}) (repo.Datastore, error) {
+	p, ok := params["path"].(string)
+	if !ok {
+		return nil, fmt.Errorf("'path' field is missing or not string")
+	}
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(r.path, p)
+	}
+
+	os.MkdirAll(p, 0755) //TODO: find better way
+
+	return badgerds.NewDatastore(p)
 }
 
 func (r *FSRepo) openMeasureDB(prefix string, child repo.Datastore) (repo.Datastore, error) {
